@@ -5,6 +5,7 @@ import time
 from scipy.spatial import Delaunay
 from PIL import ImageGrab
 import glob
+from time import sleep
 
 def find_numbering():
     filtered_list = []
@@ -52,14 +53,6 @@ class GraphStateMachine():
         self.points = np.empty((0,2))
         self.graph.erase()
         self.graph_info.Update(visible = False)
-
-    def delaunay(self):
-        if self.points.shape[0] < 3:
-            return 
-        self.tris = Delaunay(self.points)
-        for simplex in self.tris.simplices:
-            tri = np.append(self.points[simplex], self.points[simplex[:1]], axis=0)
-            self.graph.draw_lines(tri, color='black', width=1)
 
     def clear_mesh(self):
         # Erase entire graph then plot back the points
@@ -124,6 +117,7 @@ def Delaunay_creation():
     window.maximize()
     # Initialize Graph State Machine
     GSM = GraphStateMachine(window)
+    
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED: # if user closes window or clicks cancel
@@ -135,6 +129,17 @@ def Delaunay_creation():
                 continue
             # State Machine Plot the point, increase num_lm and save to table database. 
             GSM.plot_point(mouse)
+            try:
+                GSM.clear_mesh()
+                GSM.tris = Delaunay(GSM.points, incremental=True)
+                for simplex in GSM.tris.simplices:
+                    tri = np.append(GSM.points[simplex], GSM.points[simplex[:1]], axis=0)
+                    #window.Refresh()
+                    #sleep(1)
+                    GSM.graph.draw_lines(tri, color='black', width=1)
+                GSM.tris = Delaunay(GSM.points)
+            except Exception as E:
+                print(E)
         elif event == "-GENERATE20-":
             N = 20
             GSM.plot_random(N)
@@ -142,7 +147,18 @@ def Delaunay_creation():
             GSM.clear_points()
         elif event == "-DMC-":
             GSM.clear_mesh()
-            GSM.delaunay()
+            if GSM.points.shape[0] < 3:
+                return 
+            
+            GSM.tris.add_points(GSM.points)
+            print(GSM.points[0][0])
+            for simplex in GSM.tris.simplices:
+                tri = np.append(GSM.points[simplex], GSM.points[simplex[:1]], axis=0)
+                window.Refresh()
+                sleep(1)
+                GSM.graph.draw_lines(tri, color='black', width=1)
+            GSM.tris = Delaunay(GSM.points)
+
         elif event == "-EXPORT-":
             filename = GSM.export_graph()
             sg.popup(f"Your exported image is {filename} . You're welcome!")
